@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>APY Calculator</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      max-width: 1000px;
+      margin: auto;
+      padding: 24px;
+      background: #f4f7f9;
+      color: #333;
+    }
+    h2 {
+      text-align: center;
+      color: #2a4d69;
+      margin-bottom: 20px;
+    }
+    label {
+      font-weight: 500;
+      margin-right: 8px;
+    }
+    input, button {
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    input:focus {
+      outline: none;
+      border-color: #2a9df4;
+      box-shadow: 0 0 3px rgba(42,157,244,0.5);
+    }
+    button {
+      background: #2a9df4;
+      color: white;
+      cursor: pointer;
+      border: none;
+      transition: background 0.2s ease;
+    }
+    button:hover {
+      background: #1d75bd;
+    }
+    .small-field {
+      width: 50px;
+    }
+    .action-btn {
+      margin-top: 8px;
+      margin-right: 8px;
+    }
+    .deposit-group {
+      border: 1px solid #ddd;
+      padding: 12px;
+      margin-bottom: 12px;
+      background: white;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .remove {
+      background: #dc3545;
+    }
+    .remove:hover {
+      background: #a71d2a;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 24px;
+      background: white;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 0 5px rgba(0,0,0,0.05);
+    }
+    th {
+      background: #2a4d69;
+      color: white;
+    }
+    th, td {
+      padding: 10px;
+      text-align: center;
+      border-bottom: 1px solid #eee;
+    }
+    tr:nth-child(even) {
+      background: #f9f9f9;
+    }
+    .summary {
+      margin-top: 20px;
+      padding: 15px;
+      background: #fff;
+      border-radius: 6px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.05);
+      line-height: 1.6;
+      font-size: 15px;
+    }
+    .summary strong {
+      color: #2a4d69;
+    }
+  </style>
+</head>
+<body>
+  <h2>APY Investment Calculator</h2>
+
+  <div style="margin-bottom:15px;">
+    <label title="How many times per year interest is compounded">
+      Compounds/Year:
+      <input id="compounding" class="small-field" type="number" value="365" min="1">
+    </label>
+    <label>
+      Settlement Date:
+      <input id="endDate" type="date">
+    </label>
+    <button type="button" onclick="addOneYear()" class="action-btn">+1 Year</button>
+  </div>
+
+  <h3>Deposits</h3>
+  <div id="deposits"></div>
+  <button onclick="addDeposit()" class="action-btn">Add Deposit</button>
+  <button onclick="calculate()" class="action-btn">Calculate Final Amount</button>
+
+  <div id="result"></div>
+
+  <script>
+    window.onload = function() {
+      const endDateField = document.getElementById('endDate');
+      const today = new Date();
+      const defaultEnd = new Date(today.getFullYear(), 11, 31);
+      endDateField.value = defaultEnd.toISOString().slice(0, 10);
+      addDeposit();
+    };
+
+    function addOneYear() {
+      const endDateField = document.getElementById('endDate');
+      if (!endDateField.value) return;
+      const currentDate = new Date(endDateField.value);
+      currentDate.setFullYear(currentDate.getFullYear() + 1);
+      endDateField.value = currentDate.toISOString().slice(0, 10);
+    }
+
+    function addDeposit() {
+      const container = document.getElementById('deposits');
+      const today = new Date().toISOString().slice(0, 10);
+      const div = document.createElement('div');
+      div.className = 'deposit-group';
+      div.innerHTML = `
+        <label>Amount: <input type="number" class="dep-amt small-field" step="0.01" min="0" value="1000"></label>
+        <label>Date: <input type="date" class="dep-date" value="${today}"></label>
+        <label>APY (%): <input type="number" class="dep-apr small-field" step="0.01" min="0" value="4.5"></label>
+        <button type="button" class="remove" onclick="removeDeposit(this)">Remove</button>
+      `;
+      container.appendChild(div);
+    }
+
+    function removeDeposit(button) {
+      button.parentElement.remove();
+    }
+
+    function apyToApr(apy, n) {
+      return n * (Math.pow(1 + apy, 1 / n) - 1);
+    }
+
+	function formatDateMMDDYYYY(dateObj) {
+		let mm = String(dateObj.getMonth() + 1).padStart(2, '0'); // getMonth is 0-based
+		let dd = String(dateObj.getDate()).padStart(2, '0');
+		let yyyy = dateObj.getFullYear();
+		return `${mm}/${dd}/${yyyy}`;
+	}
+	
+    function calculate() {
+      const comp = parseInt(document.getElementById('compounding').value);
+      const endDateInput = document.getElementById('endDate').value;
+      if (isNaN(comp) || comp <= 0) {
+        alert('Enter valid positive compounding frequency.');
+        return;
+      }
+      if (!endDateInput) {
+        alert('Select investment end date.');
+        return;
+      }
+      const endDate = new Date(endDateInput);
+      if (isNaN(endDate.getTime())) {
+        alert('Invalid end date.');
+        return;
+      }
+
+      const amounts = [...document.getElementsByClassName('dep-amt')];
+      const dates = [...document.getElementsByClassName('dep-date')];
+      const apys = [...document.getElementsByClassName('dep-apr')];
+      let deposits = [];
+
+      for (let i = 0; i < amounts.length; i++) {
+        const principal = parseFloat(amounts[i].value);
+        const dateInput = dates[i].value;
+        const apyInput = parseFloat(apys[i].value) / 100;
+        if (isNaN(principal) || principal <= 0) {
+          alert(`Invalid principal for deposit #${i+1}`);
+          return;
+        }
+        if (!dateInput) {
+          alert(`Select date for deposit #${i+1}`);
+          return;
+        }
+        if (isNaN(apyInput) || apyInput < 0) {
+          alert(`Invalid APY for deposit #${i+1}`);
+          return;
+        }
+        const depDate = new Date(dateInput);
+        if (isNaN(depDate.getTime()) || depDate > endDate) {
+          alert(`Invalid date for deposit #${i+1}`);
+          return;
+        }
+        deposits.push({ principal, date: depDate, apy: apyInput, apr: apyToApr(apyInput, comp) });
+      }
+
+      deposits.sort((a, b) => a.date - b.date);
+      for (let i = 1; i < deposits.length; i++) {
+        if (deposits[i].date < deposits[i - 1].date) {
+          alert("Deposit dates must be chronological.");
+          return;
+        }
+      }
+
+      let output = `<table>
+        <thead>
+          <tr>
+            <th>Period Start</th>
+            <th>Period End</th>
+            <th>Start Balance ($)</th>
+            <th>Deposit ($)</th>
+            <th>APY (%)</th>
+            <th>Days</th>
+            <th>Interest ($)</th>
+            <th>End Balance ($)</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+      let currentBalance = deposits[0].principal;
+      let totalPrincipal = deposits[0].principal;
+      let currentDate = deposits[0].date;
+
+      for (let i = 1; i <= deposits.length; i++) {
+        let nextDate = (i < deposits.length) ? deposits[i].date : endDate;
+        let depositAmount = (i < deposits.length) ? deposits[i].principal : 0;
+        let periodApr = deposits[i - 1].apr;
+        let periodApy = deposits[i - 1].apy * 100;
+        const days = Math.floor((nextDate - currentDate) / (1000 * 60 * 60 * 24));
+        const years = days / 365;
+        const finalBalance = currentBalance * Math.pow(1 + periodApr / comp, comp * years);
+        const interest = finalBalance - currentBalance;
+
+        if (days > 0 || depositAmount > 0) {
+          output += `<tr>
+            <td>${formatDateMMDDYYYY(currentDate)}</td>
+			<td>${formatDateMMDDYYYY(nextDate)}</td>
+            <td>${currentBalance.toFixed(2)}</td>
+            <td>${depositAmount.toFixed(2)}</td>
+            <td>${periodApy.toFixed(2)}</td>
+            <td>${days}</td>
+            <td>${interest.toFixed(2)}</td>
+            <td>${finalBalance.toFixed(2)}</td>
+          </tr>`;
+        }
+        currentBalance = finalBalance + depositAmount;
+        if (i < deposits.length) totalPrincipal += depositAmount;
+        currentDate = nextDate;
+      }
+
+      output += `</tbody></table>
+        <div class="summary">
+          <strong>Total Principal Invested:</strong> $${totalPrincipal.toFixed(2)}<br>
+          <strong>Total Interest Earned:</strong> $${(currentBalance - totalPrincipal).toFixed(2)}<br>
+          <strong>Settlement Amount:</strong> $${currentBalance.toFixed(2)} on ${formatDateMMDDYYYY(endDate)}
+        </div>`;
+      document.getElementById('result').innerHTML = output;
+    }
+  </script>
+</body>
+</html>
